@@ -93,7 +93,10 @@ class DetectorController:
                 if self.hardware.check_trigger():
                     if log_callback:
                         log_callback("Trigger detected, processing event...")
-                    
+
+                    # TODO: Remove when hardware is developed
+                    self.hardware.generate_event_advanced()
+
                     # Process the event
                     event = self.process_event()
                     

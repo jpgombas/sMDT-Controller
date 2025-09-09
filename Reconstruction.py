@@ -181,7 +181,7 @@ class ReconstructionAlg:
             chamber0_hits = [hit for hit in hits if hit['chamber'] == 0]
             chamber1_hits = [hit for hit in hits if hit['chamber'] == 1]
             
-            if len(chamber0_hits) < 2 or len(chamber1_hits) < 2: # Need at least two hits in each detector
+            if len(chamber0_hits) < 3 or len(chamber1_hits) < 3: # Need at least two hits in each detector
                 return None
                 
             # Get tube IDs and calculate radii for each chamber
