@@ -22,11 +22,12 @@ class DetectorHardware:
         # TODO: Implement actual GPIO trigger check
         return False
     
-    def read_tube_data(self, tube_number: int) -> Tuple[float, float] | int:
+    def read_tube_data(self, tube_number: int, post_arm: bool = True) -> Tuple[float, float] | int:
         """
-        Read data from a specific tube
+        Read data from a specific tube. Arm the TDC if post_arm = True.
         Args:
             tube_number: Tube index (0-95)
+            post_arm: Arm the TDC right after reading 
         Returns:
             Tuple of (time_of_flight, time_over_threshold) or -1 if no hit
         """
@@ -46,6 +47,27 @@ class DetectorHardware:
         # TODO: Implement actual GPIO tube readout
         return -1
     
+    def arm_TDC(self, tube_number: int):
+        """
+        Arm the TDC for the next time measurments. Each TDC needs to be armed
+        after each measurment. Use this function if you used the read_tube_data()
+        function and haven't armed the TDC.
+        """
+        # TODO: Implement this function when hardware becomes available
+        return
+    
+    def read_and_arm_tube(self, tube_number: int):
+        """
+        Reads the data from the specified tube_number, and automatically
+        re-arms the TDC for the next mesurment.
+        Args:
+            tube_number: Tube index (0-95)
+        Returns:
+            Tuple of (time_of_flight, time_over_threshold) or -1 if no hit
+        """
+        return self.read_tube_data(tube_number, post_arm=True)
+        
+
     def reset_trigger(self):
         """Reset the trigger system for next event"""
         if self.simulated:
@@ -53,56 +75,11 @@ class DetectorHardware:
             
         # TODO: Implement actual GPIO trigger reset
 
+    ############################################
+    ##### Simulation Code
+    ############################################
+
     def generate_event(self):
-        """Creates a more convincing event simulation"""
-        import random
-        # -1 is a track from left to right
-        # 0 is straight
-        # 1 is a track from right to left
-
-        # Chamber 0 
-        self.next_event_hits = []
-        orientation = random.randint(-1, 1)
-        tube_num = random.randint(0,12)
-        row = 0
-
-        while tube_num < 48:
-            self.next_event_hits.append(tube_num)
-            tube_num += 12 + orientation
-            row += 1
-
-            # Add probability of adjacent hit (10%)
-            if random.random() < 0.1:
-                self.next_event_hits.append(tube_num-1)
-            if random.random() < 0.1:
-                self.next_event_hits.append(tube_num+1)
-
-            # if track goes off from chamber, go to next chamber
-            if tube_num//12 != row: 
-                break
-
-        # Chamber 1
-        orientation = random.randint(-1, 1)
-        tube_num = random.randint(48,60)
-        row = 4
-
-        while tube_num < 96:
-            self.next_event_hits.append(tube_num)
-            tube_num += 12 + orientation
-            row += 1
-
-            # Add probability of adjacent hit (10%)
-            if random.random() < 0.1:
-                self.next_event_hits.append(tube_num-1)
-            if random.random() < 0.1:
-                self.next_event_hits.append(tube_num+1)
-
-            # if track goes off from chamber, go to next chamber
-            if tube_num//12 != row: 
-                break
-
-    # Alternative implementation with additional features
-    def generate_event_advanced(self):
         """Enhanced event simulation with configurable parameters"""
         import random
         self.next_event_hits = []
@@ -113,7 +90,7 @@ class DetectorHardware:
                 {"start": 0, "end": 48, "rows": 4, "tubes_per_row": 12},
                 {"start": 48, "end": 96, "rows": 4, "tubes_per_row": 12}
             ],
-            "adjacent_hit_probability": 0.15,
+            "adjacent_hit_probability": 0.1,
             "track_efficiency": 0.9  # Probability of detecting a hit
         }
                 
@@ -126,7 +103,7 @@ class DetectorHardware:
 
     def _generate_adjacent_hits(self, center_tube, row_start, row_end, 
                             adjacent_probability=0.1):
-        """Generate adjacent hits due to noise or particle scattering"""
+        """Generate adjacent hits due to noise"""
         import random
         adjacent_hits = []
         

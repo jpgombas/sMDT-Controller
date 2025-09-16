@@ -51,7 +51,7 @@ class DetectorController:
         
         # Read all tubes
         for tube_num in range(96):
-            result = self.hardware.read_tube_data(tube_num)
+            result = self.hardware.read_and_arm_tube(tube_num)
             if result != -1:
                 tof, tot = result
                 event.add_hit(tube_num, tof, tot)
@@ -95,7 +95,7 @@ class DetectorController:
                         log_callback("Trigger detected, processing event...")
 
                     # TODO: Remove when hardware is developed
-                    self.hardware.generate_event_advanced()
+                    self.hardware.generate_event()
 
                     # Process the event
                     event = self.process_event()
