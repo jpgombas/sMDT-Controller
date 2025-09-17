@@ -83,12 +83,12 @@ pip install numpy scipy matplotlib pillow tkinter
 
 ### Running the System
 
-**GUI Mode (Recommended for development):**
+**GUI Mode:**
 ```bash
 python run.py
 ```
 
-**Headless Mode (for production data collection):**
+**Headless Mode:**
 ```bash
 # Run indefinitely
 python run.py --headless --output my_data.json
