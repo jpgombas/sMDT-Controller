@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 EventData.py - Container for a single detector event
 """

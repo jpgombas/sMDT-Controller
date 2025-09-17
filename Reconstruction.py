@@ -163,7 +163,7 @@ class ReconstructionAlg:
         # Fixed exponential function
         return 1 / (1 + math.exp(-poly))
 
-    def reconstruct_event(self, hits: List[dict]) -> Optional[dict]:
+    def reconstruct_event(self, hits: List[dict]) -> dict:
         """
         Reconstruct a muon track from detector hits.
         
@@ -171,57 +171,79 @@ class ReconstructionAlg:
             hits: List of hit dictionaries with keys 'tube_number', 'time_of_flight', 'time_over_threshold'
             
         Returns:
-            Dictionary with reconstruction results or None if reconstruction fails
+            Dictionary with reconstruction results. 'reconstruction_success' indicates if line fitting worked.
         """
-        if len(hits) < 4:  # Need at least 4 hits for good reconstruction
-            return None
+        # Initialize return dictionary with basic structure
+        result = {
+            'reconstruction_success': False,
+            'chamber0_hits': 0,
+            'chamber1_hits': 0,
+            'angle1_deg': None,
+            'angle2_deg': None,
+            'theta_deg': None,
+            'phi_deg': None,
+            'line_params_0': None,
+            'line_params_1': None,
+            'tube_ids_0': [],
+            'tube_ids_1': [],
+            'radii_0': [],
+            'radii_1': []
+        }
+        
+        if len(hits) == 0:
+            return result
             
         try:
             # Separate hits by chamber
             chamber0_hits = [hit for hit in hits if hit['chamber'] == 0]
             chamber1_hits = [hit for hit in hits if hit['chamber'] == 1]
             
-            if len(chamber0_hits) < 3 or len(chamber1_hits) < 3: # Need at least two hits in each detector
-                return None
-                
-            # Get tube IDs and calculate radii for each chamber
-            tube_ids_0 = [hit['tube_number'] for hit in chamber0_hits]
-            tube_ids_1 = [hit['tube_number'] for hit in chamber1_hits]
+            # Always populate basic hit information for plotting
+            result['chamber0_hits'] = len(chamber0_hits)
+            result['chamber1_hits'] = len(chamber1_hits)
             
-            radii_0 = [self.calibrated_radius(hit['time_of_flight'], hit['time_over_threshold']) 
-                      for hit in chamber0_hits]
-            radii_1 = [self.calibrated_radius(hit['time_of_flight'], hit['time_over_threshold']) 
-                      for hit in chamber1_hits]
+            if chamber0_hits:
+                result['tube_ids_0'] = [hit['tube_number'] for hit in chamber0_hits]
+                result['radii_0'] = [self.calibrated_radius(hit['time_of_flight'], hit['time_over_threshold']) 
+                                   for hit in chamber0_hits]
             
-            # Fit lines through circles for each chamber
-            m1, b1 = self.fit_line_through_circles(tube_ids_0, radii_0)
-            m2, b2 = self.fit_line_through_circles(tube_ids_1, radii_1)
+            if chamber1_hits:
+                result['tube_ids_1'] = [hit['tube_number'] for hit in chamber1_hits]
+                result['radii_1'] = [self.calibrated_radius(hit['time_of_flight'], hit['time_over_threshold']) 
+                                   for hit in chamber1_hits]
             
-            # Convert to angles
-            angle1 = np.arctan(m1)
-            angle2 = np.arctan(m2)
-            
-            # Convert to spherical coordinates
-            theta, phi = self.convert_to_spherical(angle1, angle2)
-            
-            return {
-                'chamber0_hits': len(chamber0_hits),
-                'chamber1_hits': len(chamber1_hits),
-                'angle1_deg': math.degrees(angle1),
-                'angle2_deg': math.degrees(angle2),
-                'theta_deg': math.degrees(theta),
-                'phi_deg': math.degrees(phi),
-                'line_params_0': (m1, b1),
-                'line_params_1': (m2, b2),
-                'tube_ids_0': tube_ids_0,
-                'tube_ids_1': tube_ids_1,
-                'radii_0': radii_0,
-                'radii_1': radii_1
-            }
-            
+            # Attempt reconstruction only if we have enough hits
+            if len(chamber0_hits) >= 3 and len(chamber1_hits) >= 3:
+                try:
+                    # Fit lines through circles for each chamber
+                    m1, b1 = self.fit_line_through_circles(result['tube_ids_0'], result['radii_0'])
+                    m2, b2 = self.fit_line_through_circles(result['tube_ids_1'], result['radii_1'])
+                    
+                    # Convert to angles
+                    angle1 = np.arctan(m1)
+                    angle2 = np.arctan(m2)
+                    
+                    # Convert to spherical coordinates
+                    theta, phi = self.convert_to_spherical(angle1, angle2)
+                    
+                    # Update result with successful reconstruction
+                    result.update({
+                        'reconstruction_success': True,
+                        'angle1_deg': math.degrees(angle1),
+                        'angle2_deg': math.degrees(angle2),
+                        'theta_deg': math.degrees(theta),
+                        'phi_deg': math.degrees(phi),
+                        'line_params_0': (m1, b1),
+                        'line_params_1': (m2, b2)
+                    })
+                    
+                except Exception as line_fit_error:
+                    print(f"Line fitting failed: {line_fit_error}")
+                    
         except Exception as e:
-            print(f"Reconstruction failed: {e}")
-            return None
+            print(f"Event processing failed: {e}")
+            
+        return result
 
     def plot_reconstruction(self, reconstruction_data: dict, chamber: int = 0) -> str:
         """
@@ -238,13 +260,29 @@ class ReconstructionAlg:
             if chamber == 0:
                 tube_ids = reconstruction_data['tube_ids_0']
                 radii = reconstruction_data['radii_0']
-                m, b = reconstruction_data['line_params_0']
+                line_params = reconstruction_data['line_params_0']
                 angle = reconstruction_data['angle1_deg']
             else:
                 tube_ids = reconstruction_data['tube_ids_1']
                 radii = reconstruction_data['radii_1']
-                m, b = reconstruction_data['line_params_1']
+                line_params = reconstruction_data['line_params_1']
                 angle = reconstruction_data['angle2_deg']
+            
+            # If no hits in this chamber, create empty plot
+            if not tube_ids:
+                fig, ax = plt.subplots(figsize=(8, 6))
+                ax.text(5.5, 4, f'No hits in Chamber {chamber}', ha='center', va='center', fontsize=14)
+                ax.set_xlim(-1, 12)
+                ax.set_ylim(-1, 8)
+                ax.set_aspect('equal')
+                ax.grid(True, alpha=0.2)
+                
+                buffer = io.BytesIO()
+                plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+                buffer.seek(0)
+                image_base64 = base64.b64encode(buffer.read()).decode()
+                plt.close(fig)
+                return image_base64
                 
             coordinates = self.tubeIDs_to_coordinates(tube_ids)
             
@@ -256,10 +294,12 @@ class ReconstructionAlg:
                 ax.add_patch(circle)
                 ax.plot(x, y, 'ro', markersize=8)  # Mark center
                 
-            # Plot the fitted line
-            x_line = np.linspace(-1, 12, 100)
-            y_line = m * x_line + b
-            ax.plot(x_line, y_line, 'g-', linewidth=3, label=f'Fitted line (θ={angle:.1f}°)')
+            # Plot the fitted line only if reconstruction was successful
+            if reconstruction_data['reconstruction_success'] and line_params is not None:
+                m, b = line_params
+                x_line = np.linspace(-1, 12, 100)
+                y_line = m * x_line + b
+                ax.plot(x_line, y_line, 'g-', linewidth=3)
             
             ax.set_aspect('equal')
             if chamber == 0:
@@ -287,4 +327,17 @@ class ReconstructionAlg:
             
         except Exception as e:
             print(f"Plotting failed: {e}")
-            return ""
+            # Return empty plot as fallback
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.text(5.5, 4, f'Plot generation failed for Chamber {chamber}', ha='center', va='center', fontsize=14)
+            ax.set_xlim(-1, 12)
+            ax.set_ylim(-1, 8)
+            ax.set_aspect('equal')
+            ax.grid(True, alpha=0.2)
+            
+            buffer = io.BytesIO()
+            plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+            buffer.seek(0)
+            image_base64 = base64.b64encode(buffer.read()).decode()
+            plt.close(fig)
+            return image_base64

@@ -1,24 +1,16 @@
-#!/usr/bin/env python3
 """
 DetectorController.py - Main controller for the muon detector system
 """
 
 from EventData import EventData
+from Reconstruction import ReconstructionAlg
 from DetectorHardware import DetectorHardware
+
 import time
 import queue
 import json
 from datetime import datetime
 from typing import Dict, Optional
-
-# Import the reconstruction algorithm
-try:
-    from Reconstruction import ReconstructionAlg
-    RECONSTRUCTION_AVAILABLE = True
-except ImportError:
-    print("Warning: Reconstruction.py not found. Reconstruction features disabled.")
-    RECONSTRUCTION_AVAILABLE = False
-
 
 class DetectorController:
     """Main controller for the muon detector system"""
@@ -29,14 +21,11 @@ class DetectorController:
         self.running = False
         self.event_counter = 0
         self.total_hits = 0
-        self.event_queue = queue.Queue()
-        self.reconstruction_queue = queue.Queue()
+        self.event_queue = queue.Queue(maxsize=100)
+        self.reconstruction_queue = queue.Queue(maxsize=100)
         
         # Initialize reconstruction algorithm
-        if RECONSTRUCTION_AVAILABLE:
-            self.recon_alg = ReconstructionAlg()
-        else:
-            self.recon_alg = None
+        self.recon_alg = ReconstructionAlg()
         
         # Statistics
         self.start_time = None
@@ -59,16 +48,11 @@ class DetectorController:
         
         self.last_event_time = datetime.now()
         
-        # Attempt reconstruction if available and enough hits
-        if self.recon_alg and len(event.hits) >= 4:
-            try:
-                reconstruction = self.recon_alg.reconstruct_event(event.hits)
-                if reconstruction:
-                    event.reconstruction = reconstruction
-                    self.reconstructed_events += 1
-            except Exception as e:
-                print(f"Reconstruction failed for event {event.event_id}: {e}")
-        
+        reconstruction_data = self.recon_alg.reconstruct_event(event.hits)
+        if reconstruction_data['reconstruction_success']:
+            self.reconstructed_events += 1
+        event.reconstruction = reconstruction_data
+
         return event
 
     def save_event(self, event: EventData):
@@ -110,20 +94,17 @@ class DetectorController:
                     if log_callback:
                         log_callback(f"Recorded: {event.get_summary()}")
                     
-                    # Put event in queue for GUI updates
-                    if hasattr(self, 'event_queue'):
-                        try:
-                            self.event_queue.put_nowait(event)
-                        except queue.Full:
-                            pass
+                    # Put event in event_queue for GUI updates
+                    try:
+                        self.event_queue.put_nowait(event)
+                    except queue.Full:
+                        print(f"WARNING: Event queue full, dropping event {event.event_id}")
                     
-                    # Put reconstruction in queue for GUI if available
-                    if hasattr(event, 'reconstruction') and hasattr(self, 'reconstruction_queue'):
-                        try:
-                            self.reconstruction_queue.put_nowait((event.reconstruction))
-                        except queue.Full:
-                            pass
-                
+                    # Put event in recontruction_queue for GUI updates
+                    try:
+                        self.reconstruction_queue.put_nowait(event.reconstruction)
+                    except queue.Full:
+                        print(f"WARNING: Reconstruction queue full, dropping reconstruction for event {event.event_id}")   
                 else:
                     # Small delay to prevent excessive CPU usage
                     time.sleep(0.001)  # 1ms
@@ -155,16 +136,10 @@ class DetectorController:
         
         stats = {
             'events': self.event_counter,
-            'total_hits': self.total_hits,
             'runtime_seconds': runtime,
             'event_rate': self.event_counter / runtime if runtime > 0 else 0,
-            'hit_rate': self.total_hits / runtime if runtime > 0 else 0,
-            'reconstructed_events': self.reconstructed_events
+            'reconstructed_events': self.reconstructed_events,
+            'reconstruction_queue_size': self.reconstruction_queue.qsize()
         }
-        
-        if self.event_counter > 0:
-            stats['reconstruction_efficiency'] = self.reconstructed_events / self.event_counter
-        else:
-            stats['reconstruction_efficiency'] = 0
             
         return stats
