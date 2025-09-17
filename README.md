@@ -115,16 +115,7 @@ Events are saved as newline-delimited JSON with the following structure:
       "time_of_flight": 45.6,
       "time_over_threshold": 12.3
     }
-  ],
-  "reconstruction": {
-    "reconstruction_success": true,
-    "chamber0_hits": 4,
-    "chamber1_hits": 4,
-    "angle1_deg": 15.2,
-    "angle2_deg": -8.7,
-    "theta_deg": 25.4,
-    "phi_deg": 120.3
-  }
+  ]
 }
 ```
 
@@ -132,10 +123,10 @@ Events are saved as newline-delimited JSON with the following structure:
 
 The system currently operates in simulation mode while hardware development is ongoing. The simulation includes:
 
-- **Realistic track generation**: Creates muon-like tracks across both chambers
+- **Track generation**: Creates muon-like tracks across both chambers
 - **Noise modeling**: Simulates adjacent hits and detection efficiency
 - **Configurable parameters**: Hit probability, track angles, chamber efficiency
-- **Event timing**: Realistic trigger rates and processing delays
+- **Event timing**: Semi-realistic trigger rates and processing delays
 
 ## Key Features
 
@@ -160,46 +151,6 @@ The system currently operates in simulation mode while hardware development is o
 - Headless mode for automated data collection
 - Configurable output formats and durations
 
-## Testing and Validation
-
-The reconstruction algorithm has been validated with:
-- Known geometric configurations
-- Simulated straight-line tracks
-- Edge cases (vertical tracks, minimal hits)
-- Noise tolerance testing
-
 ## Future Hardware Integration
 
 See [HARDWARE_INTEGRATION.md](HARDWARE_INTEGRATION.md) for detailed information about transitioning from simulation to real hardware operation.
-
-## Performance Characteristics
-
-- **Event processing rate**: ~1000 events/second (simulation)
-- **Memory usage**: <50MB typical operation
-- **GUI update rate**: 2Hz for smooth real-time display
-- **File I/O**: Asynchronous JSON writing prevents acquisition blocking
-
-## Troubleshooting
-
-### Common Issues
-
-1. **GUI freezing**: Ensure acquisition runs in separate thread
-2. **Queue overflow**: Adjust processing rates or increase queue sizes
-3. **Plot rendering errors**: Check matplotlib backend compatibility
-4. **File permission errors**: Verify write access to output directory
-
-### Debug Mode
-Enable verbose logging by modifying the controller's log_callback function to include debug-level messages.
-
-## Contributing
-
-When modifying the code:
-1. Maintain the modular architecture
-2. Preserve thread safety in concurrent operations
-3. Update simulation parameters based on real hardware characteristics
-4. Test reconstruction algorithms with known geometric cases
-5. Document any changes to the data format or API
-
-## License
-
-This project is developed for research purposes. Please contact the development team for usage permissions and collaboration opportunities.
