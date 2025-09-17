@@ -45,7 +45,7 @@ class EventData:
         return summary
     
     def to_dict(self) -> Dict:
-        """Convert event to dictionary for JSON serialization"""
+        """Convert event to dictionary for JSON serialization."""
         event_dict = {
             'event_id': self.event_id,
             'timestamp': self.timestamp.isoformat(),
