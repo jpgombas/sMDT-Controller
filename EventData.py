@@ -52,8 +52,5 @@ class EventData:
             'hit_count': len(self.hits),
             'hits': self.hits
         }
-        
-        if self.reconstruction:
-            event_dict['reconstruction'] = self.reconstruction
             
         return event_dict
